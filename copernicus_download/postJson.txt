@@ -1,0 +1,45 @@
+﻿{
+    "input": {
+        "bounds": {
+            "properties": {
+                "crs": "http://www.opengis.net/def/crs/EPSG/0/3857"
+            },
+            "bbox": [
+                12875664.540581372,
+                3316755.531350368,
+                12885448.480201872,
+                3326539.4709708695
+            ]
+        },
+        "data": [
+            {
+                "dataFilter": {
+                    "timeRange": {
+                        "from": "2023-10-01T00:00:00.000Z",
+                        "to": "2023-10-01T23:59:59.999Z"
+                    },
+                    "mosaickingOrder": "mostRecent",
+                    "previewMode": "EXTENDED_PREVIEW"
+                },
+                "processing": {
+                    "upsampling": "BILINEAR",
+                    "downsampling": "NEAREST"
+                },
+                "type": "byoc-5460de54-082e-473a-b6ea-d5cbe3c17cca"
+            }
+        ]
+    },
+    "output": {
+        "width": 512,
+        "height": 512,
+        "responses": [
+            {
+                "identifier": "default",
+                "format": {
+                    "type": "image/png"
+                }
+            }
+        ]
+    },
+    "evalscript": "//VERSION=3\nfunction setup() {\n  return {\n    input: [\"B04\",\"B03\",\"B02\", \"dataMask\"],\n    output: { bands: 4 }\n  };\n}\n\n// Contrast enhance / highlight compress\n\nconst maxR = 3.0; // max reflectance\nconst midR = 0.13;\nconst sat = 1.2;\nconst gamma = 1.8;\nconst scalefac = 10000;\n\nfunction evaluatePixel(smp) {\n  const rgbLin = satEnh(sAdj(smp.B04/scalefac), sAdj(smp.B03/scalefac), sAdj(smp.B02/scalefac));\n  return [sRGB(rgbLin[0]), sRGB(rgbLin[1]), sRGB(rgbLin[2]), smp.dataMask];\n}\n\nfunction sAdj(a) {\n  return adjGamma(adj(a, midR, 1, maxR));\n}\n\nconst gOff = 0.01;\nconst gOffPow = Math.pow(gOff, gamma);\nconst gOffRange = Math.pow(1 + gOff, gamma) - gOffPow;\n\nfunction adjGamma(b) {\n  return (Math.pow((b + gOff), gamma) - gOffPow)/gOffRange;\n}\n\n// Saturation enhancement\nfunction satEnh(r, g, b) {\n  const avgS = (r + g + b) / 3.0 * (1 - sat);\n  return [clip(avgS + r * sat), clip(avgS + g * sat), clip(avgS + b * sat)];\n}\n\nfunction clip(s) {\n  return s < 0 ? 0 : s > 1 ? 1 : s;\n}\n\n//contrast enhancement with highlight compression\nfunction adj(a, tx, ty, maxC) {\n  var ar = clip(a / maxC, 0, 1);\n  return ar * (ar * (tx/maxC + ty -1) - ty) / (ar * (2 * tx/maxC - 1) - tx/maxC);\n}\n\nconst sRGB = (c) => c <= 0.0031308 ? (12.92 * c) : (1.055 * Math.pow(c, 0.41666666666) - 0.055);"
+}
